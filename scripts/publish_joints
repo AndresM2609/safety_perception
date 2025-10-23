@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+# replay_joint_states_from_pickle.py
+import argparse, pickle, rospy, time
+from sensor_msgs.msg import JointState
+from std_msgs.msg import Header
+
+def load_snapshots(pkl_path):
+    with open(pkl_path, "rb") as f:
+        data = pickle.load(f)
+    # data is a list like: [{"t": float, "names":[...6...], "q":[...6...]}, ...]
+    return data
+
+def make_msg(names, q):
+    msg = JointState()
+    msg.header = Header()
+    msg.header.stamp = rospy.Time.now()
+    msg.name = list(names)
+    msg.position = list(q)
+    # velocity/effort optional
+    return msg
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pkl", required=True, help="Path to joint_snapshot1.pkl")
+    ap.add_argument("--topic", default="/joint_states", help="JointState topic to publish to")
+    ap.add_argument("--rate", type=float, default=5.0, help="Publish rate for sequence playback (Hz)")
+    ap.add_argument("--loop", action="store_true", help="Loop the sequence forever")
+    ap.add_argument("--single", action="store_true", help="Publish only the first snapshot (latched) and exit")
+    args = ap.parse_args(rospy.myargv()[1:])
+
+    rospy.init_node("joint_state_replayer")
+
+    # Latch = True so RViz/robot_state_publisher can see a single pose even if you publish once.
+    pub = rospy.Publisher(args.topic, JointState, queue_size=10, latch=True)
+
+    snaps = load_snapshots(args.pkl)
+    if not snaps:
+        rospy.logerr("No snapshots inside pickle.")
+        return
+
+    if args.single:
+        s0 = snaps[0]
+        msg = make_msg(s0["names"], s0["q"])
+        pub.publish(msg)
+        rospy.loginfo("Published single snapshot to %s (latched).", args.topic)
+        return
+
+    r = rospy.Rate(args.rate)
+    idx = 0
+    rospy.loginfo("Replaying %d snapshots on %s at %.2f Hz (loop=%s)",
+                  len(snaps), args.topic, args.rate, args.loop)
+    while not rospy.is_shutdown():
+        s = snaps[idx]
+        pub.publish(make_msg(s["names"], s["q"]))
+        r.sleep()
+        idx += 1
+        if idx >= len(snaps):
+            if args.loop:
+                idx = 0
+            else:
+                rospy.loginfo("Finished sequence once; leaving last message latched.")
+                break
+
+if __name__ == "__main__":
+    main()

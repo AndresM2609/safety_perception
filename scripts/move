@@ -6,7 +6,7 @@ from sensor_msgs.msg import JointState
 
 def main():
     move = moveit_commander.MoveGroupCommander('arm')
-    move.set_max_velocity_scaling_factor(0.1)
+    move.set_max_velocity_scaling_factor(0.5)
 
     move.set_named_target('ready')
     move.go()
@@ -34,3 +34,4 @@ def main():
 
 if __name__ =="__main__":
     main()
+

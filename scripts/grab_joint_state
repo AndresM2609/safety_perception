@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+import rospy
+import pickle
+from sensor_msgs.msg import JointState
+
+# define your 6 joints
+JOINT_NAMES = [
+    "arm_shoulder_pan_joint",
+    "arm_shoulder_lift_joint",
+    "arm_elbow_joint",
+    "arm_wrist_1_joint",
+    "arm_wrist_2_joint",
+    "arm_wrist_3_joint",
+]
+
+OUT_PATH = "joint_snapshot1.pkl"
+latest_msg = None
+snapshots = []  # store all joint states here
+
+def cb(msg):
+    """Keep the latest joint state message."""
+    global latest_msg
+    latest_msg = msg
+
+def extract_positions(msg):
+    """Extract the 6 joint angles in the defined order."""
+    name_to_pos = dict(zip(msg.name, msg.position))
+    q = [name_to_pos.get(n, float("nan")) for n in JOINT_NAMES]
+    t = msg.header.stamp.to_sec() if msg.header.stamp else rospy.Time.now().to_sec()
+    return t, q
+
+def main():
+    global latest_msg
+    rospy.init_node("grab_joint_state_collect")
+    rospy.Subscriber("/joint_states", JointState, cb)
+    print(f"Subscribed to /joint_states. Will save all captures to '{OUT_PATH}'.")
+
+    # wait for first message
+    while latest_msg is None and not rospy.is_shutdown():
+        rospy.sleep(0.05)
+    print("Ready.\nPress Enter to capture, or 'q' + Enter to quit.")
+
+    while not rospy.is_shutdown():
+        line = input("> ").strip().lower()
+        if line == "q":
+            break
+        if latest_msg is None:
+            print("No joint state received yet.")
+            continue
+
+        t, q = extract_positions(latest_msg)
+        snapshots.append({"t": t, "names": JOINT_NAMES, "q": q})
+
+        print(f"\n✅ Captured snapshot #{len(snapshots)}")
+        for n, v in zip(JOINT_NAMES, q):
+            print(f"{n:25s}: {v:.6f}")
+        print()
+
+    # save all collected snapshots to a single pickle file
+    if snapshots:
+        with open(OUT_PATH, "wb") as f:
+            pickle.dump(snapshots, f, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"✅ Saved {len(snapshots)} snapshots to '{OUT_PATH}'")
+    else:
+        print("No snapshots captured, nothing saved.")
+
+if __name__ == "__main__":
+    main()
