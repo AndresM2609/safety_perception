@@ -28,7 +28,7 @@ def main():
     ap.add_argument("--single", action="store_true", help="Publish only the first snapshot (latched) and exit")
     args = ap.parse_args(rospy.myargv()[1:])
 
-    rospy.init_node("joint_state_replayer")
+    rospy.init#!/usr/bin/env python_node("joint_state_replayer")
 
     # Latch = True so RViz/robot_state_publisher can see a single pose even if you publish once.
     pub = rospy.Publisher(args.topic, JointState, queue_size=10, latch=True)
