@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+import sys, pickle, math
+import rospy, moveit_commander
+from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
+from trajectory_msgs.msg import JointTrajectoryPoint
+from sensor_msgs.msg import JointState
+
+SNAP_PKL = "joint_snapshot1.pkl"   # list of {"names":[...], "q":[...]}
+MAP_PKL  = "traj_map.pkl"          # dict: (i,j) -> RobotTrajectory   (assumed)
+GROUP    = "arm"
+VEL      = 0.5
+
+def to_js(s):
+    js = JointState(); js.name = s["names"]; js.position = s["q"]; return js
+
+def reorder_current(move, names):
+    n2v = dict(zip(move.get_active_joints(), move.get_current_joint_values()))
+    return [n2v[n] for n in names]
+
+def nearest_idx(q_cur, snaps):
+    best_i, best_d = None, 1e18
+    for i, s in enumerate(snaps):
+        d = math.sqrt(sum((a-b)**2 for a,b in zip(q_cur, s["q"])))
+        if d < best_d: best_i, best_d = i, d
+    return best_i
+
+def main():
+    rospy.init_node("safe_trajectory")
+    traj_pub = rospy.Publisher("/notebook_traj", DisplayTrajectory, queue_size=1, latch=True)
+
+    with open(SNAP_PKL,"rb") as f: snaps = pickle.load(f)
+    with open(MAP_PKL, "rb") as f: plans = pickle.load(f)  # keys like (i,j) -> RobotTrajectory
+
+    move = moveit_commander.MoveGroupCommander(GROUP)
+    move.set_max_velocity_scaling_factor(VEL)
+
+    start=snaps[0]
+    
+
+
+    while not rospy.is_shutdown():
+        outs = sorted(j for (i,j) in plans.keys() if i == idx)
+        if not outs:
+            print("No outgoing plans from idx", idx); break
+        print("\nFrom idx", idx, "choose next:")
+        for k, j in enumerate(outs): print("  [{}] {} -> {}".format(k, idx, j))
+        s = raw_input("Pick number (q=quit): ").strip().lower()
+        if s == "q": break
+        if not s.isdigit() or int(s) >= len(outs): print("Invalid"); continue
+        j = outs[int(s)]
+
+        # go to exact start pose (idx)
+        move.set_joint_value_target(to_js(snaps[idx]))
+        if not move.go(wait=True): print("Failed to reach start"); move.stop(); continue
+        move.stop()
+
+        # publish plan to RViz
+        dtraj = DisplayTrajectory()
+        rtraj = RobotTrajectory()
+        rtraj.joint_trajectory = plans[(idx, j)].joint_trajectory
+        dtraj.trajectory.append(rtraj)
+        traj_pub.publish(dtraj)
+
+        # execute and update idx
+        if not move.execute(rtraj, wait=True): print("Execution failed"); move.stop(); continue
+        move.stop()
+        idx = j
+        print("Now at idx =", idx)
+
+    moveit_commander.roscpp_shutdown()
+
+if __name__ == "__main__":
+    main()

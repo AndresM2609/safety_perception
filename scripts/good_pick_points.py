@@ -8,7 +8,7 @@ with open("/home/hri25-group3/ros/src/safety_perception/joint_snapshot1.pkl", "r
         data = pickle.load(f)
 
 IN_PKL  = "joint_snapshot1.pkl"
-OUT_PKL = "good_pairs_fast.pkl"
+OUT_PKL = "good_pairs2_fast.pkl"
 GROUP   = "arm"
 NAMED   = "ready"    # or None
 VEL     = 0.6
