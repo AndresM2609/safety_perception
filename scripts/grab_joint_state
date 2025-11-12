@@ -13,7 +13,7 @@ JOINT_NAMES = [
     "arm_wrist_3_joint",
 ]
 
-OUT_PATH = "joint_snapshot1.pkl"
+OUT_PATH = "joint_snapshot_final.pkl"
 latest_msg = None
 snapshots = []  # store all joint states here
 

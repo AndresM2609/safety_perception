@@ -4,11 +4,11 @@ import rospy, moveit_commander
 from sensor_msgs.msg import JointState
 import moveit_msgs.msg
 
-with open("/home/hri25-group3/ros/src/safety_perception/joint_snapshot1.pkl", "rb") as f:
+with open("/home/hri25-group3/ros/src/safety_perception/joint_snapshot_final.pkl", "rb") as f:
         data = pickle.load(f)
 
-IN_PKL  = "joint_snapshot1.pkl"
-OUT_PKL = "test_pairs_fast.pkl"
+IN_PKL  = "joint_snapshot_final.pkl"
+OUT_PKL = "final_pairs_fast.pkl"
 GROUP   = "arm"
 NAMED   = "ready"    # or None
 VEL_SCALING_FACTOR = 0.8  # fraction of limits #for slow 0.6

@@ -1,0 +1,60 @@
+#!/usr/bin/env python
+import rospy
+import pickle
+import moveit_commander 
+from sensor_msgs.msg import JointState
+from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
+import random
+import moveit_msgs.msg
+
+
+rospy.init_node('trajectiory_executer')
+state_pub = rospy.Publisher("notebook_state", moveit_msgs.msg.DisplayRobotState, queue_size=1, latch=True)
+traj_pub = rospy.Publisher("notebook_traj", moveit_msgs.msg.DisplayTrajectory, queue_size=1, latch=True)
+
+with open("/home/hri25-group3/ros/src/safety_perception/joint_snapshot_final.pkl", "rb") as f:
+        data = pickle.load(f)
+with open("/home/hri25-group3/ros/src/safety_perception/final_pairs_slow.pkl", "rb") as f:
+        plans = pickle.load(f)
+
+def display_state(s):    
+    ds = moveit_msgs.msg.DisplayRobotState()
+    ds.state.joint_state.name = s['names']
+    ds.state.joint_state.position = s['q']
+    state_pub.publish(ds)
+
+def display_plan(p):
+    dtraj = moveit_msgs.msg.DisplayTrajectory()
+    rtraj = moveit_msgs.msg.RobotTrajectory()
+    rtraj.joint_trajectory = p.joint_trajectory
+    dtraj.trajectory.append(rtraj)
+    traj_pub.publish(dtraj)
+
+def has_outgoing(plans, node):
+    # True if there exists any key (node, k) in plans
+    return any(k[0] == node for k in plans)
+
+def pick_edge_with_future(plans, i, avoid_edge=None):
+    """Pick (i->j) preferring j that has outgoing edges. Avoid a specific edge if given."""
+    outs = [k for k in plans if k[0] == i and k != avoid_edge]
+    if not outs:
+        return None
+    # prefer edges whose destination isn't a dead-end
+    good = [k for k in outs if has_outgoing(plans, k[1])]
+    return random.choice(good if good else outs)[1]
+
+def trajectory_execution():
+    cur_idx = 2
+    move = moveit_commander.MoveGroupCommander('arm')
+
+    while not rospy.is_shutdown():
+        next_idx = pick_edge_with_future(plans, cur_idx)
+        display_state(data[next_idx])
+        # TODO: make this next line execution and check for success before going on
+        display_plan(plans[cur_idx,next_idx])
+        move.execute(plans[cur_idx,next_idx],wait=True)
+        cur_idx = next_idx
+        
+
+if __name__=='__main__':
+     trajectory_execution()

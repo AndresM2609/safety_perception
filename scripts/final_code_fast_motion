@@ -12,9 +12,9 @@ rospy.init_node('trajectiory_executer')
 state_pub = rospy.Publisher("notebook_state", moveit_msgs.msg.DisplayRobotState, queue_size=1, latch=True)
 traj_pub = rospy.Publisher("notebook_traj", moveit_msgs.msg.DisplayTrajectory, queue_size=1, latch=True)
 
-with open("/home/hri25-group3/ros/src/safety_perception/joint_snapshot1.pkl", "rb") as f:
+with open("/home/hri25-group3/ros/src/safety_perception/joint_snapshot_final.pkl", "rb") as f:
         data = pickle.load(f)
-with open("/home/hri25-group3/ros/src/safety_perception/good_pairs2_fast.pkl", "rb") as f:
+with open("/home/hri25-group3/ros/src/safety_perception/final_pairs_fast.pkl", "rb") as f:
         plans = pickle.load(f)
 
 def display_state(s):    
@@ -44,7 +44,7 @@ def pick_edge_with_future(plans, i, avoid_edge=None):
     return random.choice(good if good else outs)[1]
 
 def trajectory_execution():
-    cur_idx = 0
+    cur_idx = 2
     move = moveit_commander.MoveGroupCommander('arm')
 
     while not rospy.is_shutdown():
