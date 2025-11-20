@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="safety_perception" type="motion_experiment" name="motion_slow">
+        <param name="mode" value="slow"/>
+    </node>
+</launch>

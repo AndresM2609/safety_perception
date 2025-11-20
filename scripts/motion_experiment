@@ -12,10 +12,6 @@ rospy.init_node('trajectiory_executer')
 state_pub = rospy.Publisher("notebook_state", moveit_msgs.msg.DisplayRobotState, queue_size=1, latch=True)
 traj_pub = rospy.Publisher("notebook_traj", moveit_msgs.msg.DisplayTrajectory, queue_size=1, latch=True)
 
-with open("/home/hri25-group3/ros/src/safety_perception/joint_snapshot_final.pkl", "rb") as f:
-        data = pickle.load(f)
-with open("/home/hri25-group3/ros/src/safety_perception/final_pairs_fast.pkl", "rb") as f:
-        plans = pickle.load(f)
 
 def display_state(s):    
     ds = moveit_msgs.msg.DisplayRobotState()
@@ -44,8 +40,36 @@ def pick_edge_with_future(plans, i, avoid_edge=None):
     return random.choice(good if good else outs)[1]
 
 def trajectory_execution():
-    cur_idx = 2
+    with open("/home/hri25-group3/ros/src/safety_perception/joint_snapshot_final.pkl", "rb") as f:
+        data = pickle.load(f)
+
+    mode=rospy.get_param("~mode")
+    if mode=="fast":
+        with open("/home/hri25-group3/ros/src/safety_perception/final_pairs_fast.pkl", "rb") as f:
+            plans = pickle.load(f)
+    elif mode=="slow":
+        with open("/home/hri25-group3/ros/src/safety_perception/final_pairs_slow.pkl", "rb") as f:
+            plans = pickle.load(f)
+    else:
+        rospy.logfatal(f"Invalid mode '{mode}'")
+        return
+    
     move = moveit_commander.MoveGroupCommander('arm')
+    move.set_max_velocity_scaling_factor(0.1)
+
+    cur_idx = 2
+    start= data[cur_idx]
+
+    js1= JointState()
+    js1.name= start['names']
+    js1.position=start['q']
+
+    move.set_joint_value_target(js1)
+    while not move.go(wait=True):
+        rospy.logerr("Robot did not move to INITIAL position")
+        if not rospy.is_shutdown():
+            return 
+        rospy.sleep(3.0)
 
     while not rospy.is_shutdown():
         next_idx = pick_edge_with_future(plans, cur_idx)
